@@ -5,6 +5,7 @@ module/*
 pictures/*
 example.ps1
 spek.tmp
+*.zip
 
 #################
 ## Eclipse
