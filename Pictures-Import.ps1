@@ -1,4 +1,9 @@
-
+#
+# This script require the module image
+# http://blogs.msdn.com/b/powershell/archive/2009/03/31/image-manipulation-in-powershell.aspx
+# Simply download and unzip the file into a directory called Image underneath 
+# $env:UserProfile\Documents\WindowsPowerShell\Modules and then run Import-Module Image
+#
 param
 (
 	$Username,
@@ -6,74 +11,75 @@ param
 	$OperationType
 )
 
+$debug = $false
 
-/*
-# these delta properties are used for delta searches in Active Directory. When this script is called
-# with the Delta operation type, it will only return users objects where one of the specified
-# attributes has changed since last import
-$DeltaPropertiesToLoad = @( "displayName", "distinguishedName", "homeDirectory", "objectGuid", "isDeleted" )
+# Schema creation in FIM
+#$obj = New-Object -Type PSCustomObject 
+#$obj | Add-Member -Type NoteProperty -Name "Anchor-Id|String" -Value 1 
+#$obj | Add-Member -Type NoteProperty -Name "objectClass|String" -Value "user" 
+#$obj | Add-Member -Type NoteProperty -Name "AccountName|String" -Value "REVX" 
+#$obj | Add-Member -Type NoteProperty -Name "EmployeeID|String" -Value "999999" 
+#$obj | Add-Member -Type NoteProperty -Name "Picture|String" -Value "999999" 
 
-# the MASchemaProperties are the properties that this script will return to FIM on objects found
-$MASchemaProperties = @( "givenName", "sn", "displayName", "homeDirectory", "sAMAccountName" )
-
-$RootDse = [ADSI] "LDAP://RootDSE"
-$Domain = New-Object System.DirectoryServices.DirectoryEntry "LDAP://$($RootDse.defaultNamingContext)", $Username, $Password
-
-$Searcher = New-Object System.DirectoryServices.DirectorySearcher $Domain, "(&(objectClass=user))", $DeltaPropertiesToLoad, 1
-$Searcher.Tombstone = ($OperationType -match 'Delta')
-$Searcher.CacheResults = $false
+#
+# Configuration params (would have been great to get those from FIM
+#
+$picturesDir = "C:\Users\dr\Documents\Utvikling\PowerShell\PS-MA-pictures"
+$filter      = "*#*.jp*g"
 
 if ($OperationType -eq "Full" -or $RunStepCustomData -match '^$')
 {
-	# reset the directory synchronization cookie for full imports (or no watermark)
-	$Searcher.DirectorySynchronization = New-Object System.DirectoryServices.DirectorySynchronization
+	# reset timestamp for full imports (or no watermark)
+	$timeStamp = get-date('1/1/1601')
 }
 else
 {
-	# grab the watermark from last run and pass that to the searcher
-	$Cookie = [System.Convert]::FromBase64String($RunStepCustomData)
-	$SyncCookie = ,$Cookie # forcing it to be of type byte[]
-	$Searcher.DirectorySynchronization = New-Object System.DirectoryServices.DirectorySynchronization $SyncCookie
+	# grab the watermark from last run and pass that to the timestamp
+    # Convert from WMI date format (DMTF)  
+	$timeStamp = [System.Management.ManagementDateTimeConverter]::ToDateTime($RunStepCustomData)
 }
 
-$Results = $Searcher.FindAll()
-foreach ($Result in $Results)
+
+$imgFilter = Add-ScaleFilter -width 96 -height 96 -passThru
+
+$items = Get-ChildItem -Filter $filter -File -Path $pictureDir -Recurse | Where-Object {$_.LastWriteTimeUtc -ge $timestamp}
+
+
+# enumerate the items array
+foreach ($item in ($items | Sort-Object LastWriteTime) )
 {
-	# we always add objectGuid and objectClass to all objects
-	$obj = @{}
-	$Obj.Add("objectGuid", ([GUID] $result.PSBase.Properties.objectguid[0]).ToString())
-	$Obj.Add("objectClass", "user")
-	if ( $result.Properties.Contains("isDeleted") )
-	{
-		# this is a deleted object, so we return a changeType of 'delete'; default changeType is 'Add'
-		$Obj.Add("changeType", "Delete")
-	}
-	else
-	{
-		# we need to get the directory entry to get the additional attributes since
-		# these are not available if we are running a delta import (DirSync) and
-		# they haven't changed. Using just the SearchResult would only get us
-		# the changed attributes on delta imports and we need more, oooh, so much more
-		$DirEntry = $Result.GetDirectoryEntry()
-		
-		# always add the objectSid
-		$Obj.Add("objectSid", (New-Object System.Security.Principal.SecurityIdentifier($DirEntry.Properties["objectSid"][0], 0)).ToString() )
-		
-		# add the attributes defined in the schema for this MA
-		$MASchemaProperties | ForEach-Object `
-		{
-			if ($DirEntry.Properties.Contains($_))
-			{
-				$Obj.Add($_, $DirEntry.Properties[$_][0])
-			}
-		}
-	}
-	$Obj
+    $obj = @{}
+    $obj.Add("objectClass", "user")
+
+    if ($item.name -match "^.+#(.+)\.jpe*g$") {
+        $obj.Add("AccountName", $matches[1].toUpper())
+        
+        $image = Get-Image $item.FullName            
+        $image = $image | Set-ImageFilter -filter $imgFilter -passThru
+        $b = $image.FileData.BinaryData
+        $obj.Add("Picture",[System.Convert]::ToBase64String($b))
+        If ($debug) {
+            $fName =  "{0}\\{1}.jpeg" -f $picturesDir, $obj["AccountName"]
+            If (Test-Path $fName){ Remove-Item $fName }
+            $image.SaveFile($fName)
+        }
+    }
+    else {
+        $obj.Add("[ErrorName]", "file-error")
+        $obj.Add("[ErrorDetail]", "Unexpected file name {0}" -f $item.Name)
+    }
+
+    if ($debug) { $obj.Add("LastWriteTimeUtc", $item.LastWriteTimeUtc) }
+
+    $timeStamp = $item.LastWriteTimeUtc
+
+    $obj
 }
 
-# grab the synchronization cookie value to use for next delta/watermark
-# and put it in the $RunStepCustomData. It is important to mark the $RunStepCustomData
-# as global, otherwise FIM cannot pick it up and delta's won't work correctly
-$global:RunStepCustomData = [System.Convert]::ToBase64String($Searcher.DirectorySynchronization.GetDirectorySynchronizationCookie())
 
-*/
+# Same the watermark -> timestamp
+#$timeStamp = Get-Date
+#$timeStamp = $today.ToUniversalTime()
+# Convert to WMI date format (DMTF) - it's a string  
+$global:RunStepCustomData = [System.Management.ManagementDateTimeConverter]::ToDmtfDateTime($timeStamp)
+
