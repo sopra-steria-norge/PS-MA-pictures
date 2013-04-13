@@ -1,3 +1,11 @@
+#############
+## Custom for this project
+#############
+module/*
+pictures/*
+example.ps1
+spek.tmp
+
 #################
 ## Eclipse
 #################
@@ -161,3 +169,4 @@ pip-log.txt
 
 # Mac crap
 .DS_Store
+

@@ -15,10 +15,8 @@ $debug = $false
 
 # Schema creation in FIM
 #$obj = New-Object -Type PSCustomObject 
-#$obj | Add-Member -Type NoteProperty -Name "Anchor-Id|String" -Value 1 
 #$obj | Add-Member -Type NoteProperty -Name "objectClass|String" -Value "user" 
-#$obj | Add-Member -Type NoteProperty -Name "AccountName|String" -Value "REVX" 
-#$obj | Add-Member -Type NoteProperty -Name "EmployeeID|String" -Value "999999" 
+#$obj | Add-Member -Type NoteProperty -Name "Anchor-AccountName|String" -Value "REVX" 
 #$obj | Add-Member -Type NoteProperty -Name "Picture|String" -Value "999999" 
 
 #
