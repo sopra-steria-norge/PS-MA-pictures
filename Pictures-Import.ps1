@@ -4,7 +4,8 @@
 # Simply download and unzip the file into a directory called Image underneath 
 # $env:UserProfile\Documents\WindowsPowerShell\Modules and then run Import-Module Image
 #
-param
+
+PARAM
 (
 	$Username,
 	$Password,
@@ -12,6 +13,7 @@ param
 )
 
 $debug = $false
+Import-Module Image
 
 # Schema creation in FIM
 #$obj = New-Object -Type PSCustomObject 
@@ -22,10 +24,10 @@ $debug = $false
 #
 # Configuration params (would have been great to get those from FIM
 #
-$picturesDir = "C:\temp\test"
+$picturesDir = '\Users\dr\Documents\Utvikling\PowerShell\PS-MA-pictures'
 $filter      = "*#*.jp*g"
 
-if ($OperationType -eq "Full" -or $RunStepCustomData -match '^$')
+if ($OperationType -eq "Full" -or $global:RunStepCustomData -match '^$')
 {
 	# reset timestamp for full imports (or no watermark)
 	$timeStamp = get-date('1/1/1601')
@@ -34,34 +36,40 @@ else
 {
 	# grab the watermark from last run and pass that to the timestamp
     # Convert from WMI date format (DMTF)  
-	$timeStamp = [System.Management.ManagementDateTimeConverter]::ToDateTime($RunStepCustomData)
+	$timeStamp = [System.Management.ManagementDateTimeConverter]::ToDateTime($global:RunStepCustomData)
 }
 
 
-$imgFilter = Add-ScaleFilter -width 96 -height 96 -passThru
+$imgFilter = Add-ScaleFilter -Width 96 -Height 96 -passThru
 
-# PS2.0 does not support "-File" param 
 $items = Get-ChildItem -Filter $filter -Path $picturesDir -Recurse | Where-Object {$_.LastWriteTimeUtc -ge $timestamp}
-
+#PS 3.0 cmld $items = Get-ChildItem -Filter $filter -File -Path $pictureDir -Recurse | Where-Object {$_.LastWriteTimeUtc -ge $timestamp}
 
 # enumerate the items array
 foreach ($item in ($items | Sort-Object LastWriteTime) )
 {
     $obj = @{}
     $obj.Add("objectClass", "user")
-
-    if ( ($item.Attributes -ne "Directory") -And ($item.name -match "^.+#(.+)\.jpe*g$")) {
-        $obj.Add("AccountName", $matches[1].toUpper())
-        
-        $image = Get-Image $item.FullName            
-        $image = $image | Set-ImageFilter -filter $imgFilter -passThru
-        $b = $image.FileData.BinaryData
-        $obj.Add("Picture",[System.Convert]::ToBase64String($b))
-        If ($debug) {
-            $fName =  "{0}\\{1}.jpeg" -f $picturesDir, $obj["AccountName"]
-            If (Test-Path $fName){ Remove-Item $fName }
-            $image.SaveFile($fName)
-        }
+	if ( ($item.Attributes -ne "Directory") -And ($item.name -match "^.+#(.+)\.jpe*g$")) {
+    #PS 3.0 if ($item.name -match "^.+#(.+)\.jpe*g$") {
+	$obj.Add("AccountName", $matches[1].toUpper())
+	try {
+			#$obj.Add("DN", "CN={0},DC=tull" -f $obj["AccountName"])
+			$image = Get-Image $item.FullName            
+			$image = $image | Set-ImageFilter -filter $imgFilter -passThru
+			$b = $image.FileData.BinaryData
+#			$obj.Add("Picture",[System.Convert]::ToBase64String($b))
+			$obj.Add("Picture",$b)
+			If ($debug) {
+				$fName =  "{0}\\{1}.jpeg" -f $picturesDir, $obj["AccountName"]
+				If (Test-Path $fName){ Remove-Item $fName }
+				$image.SaveFile($fName)
+			}
+		}
+	catch {
+			$obj.Add("[ErrorName]", "file-error")
+			$obj.Add("[ErrorDetail]", "Feil bildeformat (kankje) {0}" -f $item.Name)	
+		}
     }
     else {
         $obj.Add("[ErrorName]", "file-error")
