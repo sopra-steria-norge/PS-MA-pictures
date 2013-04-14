@@ -22,7 +22,7 @@ $debug = $false
 #
 # Configuration params (would have been great to get those from FIM
 #
-$picturesDir = "C:\Users\dr\Documents\Utvikling\PowerShell\PS-MA-pictures"
+$picturesDir = "C:\temp\test"
 $filter      = "*#*.jp*g"
 
 if ($OperationType -eq "Full" -or $RunStepCustomData -match '^$')
@@ -40,7 +40,8 @@ else
 
 $imgFilter = Add-ScaleFilter -width 96 -height 96 -passThru
 
-$items = Get-ChildItem -Filter $filter -File -Path $pictureDir -Recurse | Where-Object {$_.LastWriteTimeUtc -ge $timestamp}
+# PS2.0 does not support "-File" param 
+$items = Get-ChildItem -Filter $filter -Path $picturesDir -Recurse | Where-Object {$_.LastWriteTimeUtc -ge $timestamp}
 
 
 # enumerate the items array
@@ -49,7 +50,7 @@ foreach ($item in ($items | Sort-Object LastWriteTime) )
     $obj = @{}
     $obj.Add("objectClass", "user")
 
-    if ($item.name -match "^.+#(.+)\.jpe*g$") {
+    if ( ($item.Attributes -ne "Directory") -And ($item.name -match "^.+#(.+)\.jpe*g$")) {
         $obj.Add("AccountName", $matches[1].toUpper())
         
         $image = Get-Image $item.FullName            
