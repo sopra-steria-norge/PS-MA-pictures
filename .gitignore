@@ -6,6 +6,7 @@ pictures/*
 example.ps1
 spek.tmp
 *.zip
+import.ps1
 
 #################
 ## Eclipse
