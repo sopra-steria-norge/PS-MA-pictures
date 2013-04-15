@@ -58,8 +58,12 @@ foreach ($item in ($items | Sort-Object LastWriteTime) )
 			$image = Get-Image $item.FullName            
 			$image = $image | Set-ImageFilter -filter $imgFilter -passThru
 			$b = $image.FileData.BinaryData
-#			$obj.Add("Picture",[System.Convert]::ToBase64String($b))
-			$obj.Add("Picture",$b)
+# Base64		$obj.Add("Picture",[System.Convert]::ToBase64String($b))
+# bin           $toArray = $b | ForEach-Object { [Convert]::ToString($_,2) }
+# HEX           $toArray = $b | ForEach-Object { $_.ToString("X2") }
+            $toArray = $b | ForEach-Object { $_.ToString("X2") }
+            $toStr = $toArray -join ""
+			$obj.Add("Picture",$toStr)
 			If ($debug) {
 				$fName =  "{0}\\{1}.jpeg" -f $picturesDir, $obj["AccountName"]
 				If (Test-Path $fName){ Remove-Item $fName }
