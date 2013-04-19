@@ -33,7 +33,7 @@ Import-Module Image
 #$obj | Add-Member -Type NoteProperty -Name "Anchor-AccountName|String" -Value "IAMBLOGG" 
 #$obj | Add-Member -Type NoteProperty -Name "Picture|String" -Value "999999" 
 # or (binary still not working)
-#$obj | Add-Member -Type NoteProperty -Name "Picture|Binary" -Value 0x10 
+#$obj | Add-Member -Type NoteProperty -Name "Picture|String" -Value "FF" 
 #$obj
 
 #
